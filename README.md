@@ -2,7 +2,7 @@
 The Data-Driven Information Theory (DDIT, pronounced "did-it") framework is a set of useful tools for applying information theory to your data.
 
 ## Requirements
-Right now, the only version of DDIT is a python class. This makes for both ease of use and ease of developement. DDIT is developed with python 3.7.3 64-bit and numpy v1.17.2 .
+Right now, the only version of DDIT is a python class. This makes for both ease of use and ease of development. DDIT is developed with python 3.7.3 64-bit and numpy v1.17.2 .
 
 ## Usage
 The following sections describe how to use DDIT.
@@ -31,8 +31,8 @@ Data that has been loaded is stored in DDIT.raw_data as a list of lists (RC addr
 DDIT.raw_data is used as a staging ground for you to construct your random variables (hereafter also known as "columns").
 
 ### Registering Columns (Random Variables)
-There are two main ways to regester random variables. The first way is to manually register them, and the second is to automatically regester them.
-To manually regester a column, you can either call DDIT.register_column(),
+There are two main ways to register random variables. The first way is to manually register them, and the second is to automatically register them.
+To manually register a column, you can either call DDIT.register_column(),
 ```python
 # register column 0 of raw_data as "Input_1"
 ddit.register_column("Input_1", 0)
@@ -43,16 +43,16 @@ ddit.register_column("Input_1", 0)
 custom_column = [row[1] for row in ddit.raw_data]
 ddit.register_column_list("Input_2", custom_column)
 ```
-The first allows you to specify a column index of raw_data to load while the second offers you the ability to filter, concatinate, or otherwise manipulate one or several columns before regestering the final result.
+The first allows you to specify a column index of raw_data to load while the second offers you the ability to filter, concatenate, or otherwise manipulate one or several columns before registering the final result.
 
-If your CSV file is organized in such a way that each column *is* a random variable *and* column headers are provided, you can automatically regester each column of raw_data as a random variable. The name given to each variable is the corresponding column header.
+If your CSV file is organized in such a way that each column *is* a random variable *and* column headers are provided, you can automatically register each column of raw_data as a random variable. The name given to each variable is the corresponding column header.
  ```python
-# load data and regester each column automatically 
+# load data and register each column automatically 
 ddit.load_csv("data.csv", header=True, auto_register=True)
 ```
 
 ### Calculating Entropies, Information, and Joint Variables
-To calculate the entropy of any regestered variable:
+To calculate the entropy of any registered variable:
  ```python
 # Calculate the entropy of "Input_1"
 e1 = ddit.H("Input_1")
@@ -69,8 +69,8 @@ ddit.AND("Input_1", "Input_2")
 ```
 
 ### Complex Entropy Formulas
-Sometimes the labor required to manually regester joint variables and calculate shared entropy etc. can be too much. In this case, a function exists to calculate any arbetrary entropy formula that you can give. The acceptable input format is any formula in "standard form" which is here defined as a formula which is in the form "X:Y|Z". There are several mathematical notes to make here:
-First, "X:Y|Z", "X:Y", "Y|Z", and "Z" are each examples of formulas in standard form. So is "A:B:C:D|EFGH". In general, standard form is when you express your entropy as a shared entropy (of arbetraly many variables >= 0) conditional on a joint entropy (of arbetraly many variables >= 0) and no variable appears more than once.
+Sometimes the labor required to manually register joint variables and calculate shared entropy etc. can be too much. In this case, a function exists to calculate any arbitrary entropy formula that you can give. The acceptable input format is any formula in "standard form" which is here defined as a formula which is in the form "X:Y|Z". There are several mathematical notes to make here:
+First, "X:Y|Z", "X:Y", "Y|Z", and "Z" are each examples of formulas in standard form. So is "A:B:C:D|EFGH". In general, standard form is when you express your entropy as a shared entropy (of arbitrarily many variables >= 0) conditional on a joint entropy (of arbitrarily many variables >= 0) and no variable appears more than once.
 The formula "" or "|" is undefined (though in a data driven system would always evaluate to 0 anyway if it was).
 To get DDIT to evaluate your entropy formula simply call:
  ```python
@@ -84,19 +84,19 @@ ent = ddit.entropies["X:Y|Z"]
 ```
 
 ### Generating a system's Venn diagram
-To generate the venn diagram of all regestered columns:
+To generate the venn diagram of all registered columns:
  ```python
-# get the venn diagram of the entire system (all regestered columns)
+# get the venn diagram of the entire system (all registered columns)
 ddit.solve_venn_diagram()
 ```
-To generate the venn diagram for a specific subset of regestered columns:
+To generate the venn diagram for a specific subset of registered columns:
  ```python
 # get the venn diagram of X, Y and Z only
 ddit.solve_venn_diagram(column_keys=["X","Y","Z"])
 ```
 
 ### Verbose mode
-You can set DDIT to verbose mode when you create the object instance or at any time after to get aditional printout from many of the DDIT functions. It also enables timestamped messages. This is primarily a debugging tool for developers and end users and does not affect data processing in any way.
+You can set DDIT to verbose mode when you create the object instance or at any time after to get additional printout from many of the DDIT functions. It also enables time stamped messages. This is primarily a debugging tool for developers and end users and does not affect data processing in any way.
 Usage:
  ```python
 # Verbose mode on object creation
@@ -110,7 +110,7 @@ ddit.verbose = True
 ```
 
 ### Save Memory mode
-Several functions like DDIT.recursively_solve_formula() and DDIT.solve_venn_diagram() have a parameter called "save_memory" which is set to False by default. DDIT caches intermediate forms of your data to speed up computation, but this is only practical for small problem sizes. To disable this caching (reducing performance, but also reducing memory usage significantly) simply call these functions and pass the save_memory paramater as True instead.
+Several functions like DDIT.recursively_solve_formula() and DDIT.solve_venn_diagram() have a parameter called "save_memory" which is set to False by default. DDIT caches intermediate forms of your data to speed up computation, but this is only practical for small problem sizes. To disable this caching (reducing performance, but also reduce memory usage significantly) simply call these functions and pass the save_memory parameter as True instead.
 
 ### Alternate Entropy measures
-By default DDIT calculates all entropies using the maximum-likelihood method, whereby all events' probabilities are estimated by their frequency relative to the total number of observed events. DDIT partially supports the james-stein entropy estimator. It is currently not compatable with DDIT.recursively_solve_formula() and, by extension, also not compatible with DDIT.solve_venn_diagram(). This will be fixed one day.
+By default DDIT calculates all entropies using the maximum-likelihood method, whereby all events' probabilities are estimated by their frequency relative to the total number of observed events. DDIT partially supports the james-stein entropy estimator. It is currently not compatible with DDIT.recursively_solve_formula() and, by extension, also not compatible with DDIT.solve_venn_diagram(). This will be fixed one day.
