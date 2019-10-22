@@ -7,7 +7,7 @@
 # 
 
 
-#TODO replace all accesses of self.columns with the new get/set functions. Then add a flag to have each entry in the dict a file instead to conserve RAM
+#TODO add a flag to column interface functions to have each entry in the dict a file instead to conserve RAM
 
 
 from numpy import log2, isclose, array, memmap
@@ -130,7 +130,7 @@ class DDIT:
         if bot == 0.0: #prevents divide by 0. assumes x/0 = inf
             return 1.0 # or return 0.0. In either case p_shrink converges to p_ML
         lambda_star = top/bot
-        if lambda_star > 1.0: #critical operation! found in appendex A
+        if lambda_star > 1.0: #critical operation! found in appendix A
             lambda_star = 1.0
         return lambda_star
 
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     # auto register columns based on CSV headers 
     ddit.load_csv("xor_data.csv", header=True, auto_regester=True)
 
-    # calculate an arbetrary entropy given in standard form
+    # calculate an arbitrary entropy given in standard form
     ddit.recursively_solve_formula("X:Y|Z")
 
     # the result is automatically stored in DDIT.entropies
