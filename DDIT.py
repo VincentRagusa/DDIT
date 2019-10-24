@@ -13,6 +13,7 @@
 from numpy import log2, isclose, array, memmap
 from copy import deepcopy	
 import datetime
+from collections import Counter
 
 class DDIT:
 
@@ -124,9 +125,9 @@ class DDIT:
 
 
     def __james_stein_lambda(self, n, e_counts, p):
-        states_recorded = len(e_counts)
-        top = 1-sum([(e_counts[event]/n)**2 for event in e_counts])
-        bot = (n -1)*(sum([((1/p)-e_counts[event]/n)**2 for event in e_counts]) + (p-states_recorded)*((1/p)**2))
+        states_recorded = len(e_counts.items())
+        top = 1-sum([(event[1]/n)**2 for event in e_counts.items()])
+        bot = (n -1)*(sum([((1/p)-event[1]/n)**2 for event in e_counts.items()]) + (p-states_recorded)*((1/p)**2))
         if bot == 0.0: #prevents divide by 0. assumes x/0 = inf
             return 1.0 # or return 0.0. In either case p_shrink converges to p_ML
         lambda_star = top/bot
@@ -141,32 +142,24 @@ class DDIT:
             return
         events_data = self.__get_column(col)
         events_recorded = len(events_data)
-        event_counts = {}
-        for event in events_data:
-            if event not in event_counts:
-                event_counts[event] = 1
-            else:
-                event_counts[event] += 1
+        event_counts = Counter(events_data)
         h = 0
-        for event in event_counts:
+        
+        for event in event_counts.items():
             if self.probability_estimator=="maximum_likelihood":
-                p = event_counts[event]/ events_recorded
+                p = event[1]/ events_recorded
             elif self.probability_estimator=="james-stein":
                 if col not in self.max_states:
                     print("ERROR cannot use james-stein probability estimator because \"{}\" does not define maximum states".format(col))
                     return
                 lambda_star = self.__james_stein_lambda(events_recorded,event_counts,self.max_states[col])
                 t = 1 / self.max_states[col]
-                p_ml = event_counts[event]/ events_recorded
+                p_ml = event[1]/ events_recorded
                 p = lambda_star*t + (1-lambda_star)*p_ml
             else:
                 print("ERROR unknown probability estimator \"{}\"".format(self.probability_estimator))
                 return
             h -= p * log2(p)
-
-        # if isclose([h],[0]):
-        #     return 0
-        # else:
         return h
 
 
@@ -176,9 +169,6 @@ class DDIT:
             if self.verbose: print("{} Regestering column \"{}\"...".format(str(datetime.datetime.now()), and_key))
             self.AND(col1,col2)
         i = self.H(col1) + self.H(col2) - self.H(and_key)
-        # if isclose([i],[0]):
-        #     return 0
-        # else:
         return i
 
     def auto_possible_values(self, key):
@@ -212,7 +202,6 @@ class DDIT:
             S=""
             S = ":".join(subset)
             if remainder: S += "|"
-            # S += "|"
             S += "&".join(remainder)
             return S
         return ""
@@ -225,11 +214,9 @@ class DDIT:
                 #formula is a conditional with shared entropy on the lhs
                 shareds = halves[0].split(":")
                 left_formula = ":".join(shareds[1:]) + "|" + halves[1]
-                # right_formula = ":".join(shareds[1:]) + "|" + halves[1] + "&" + shareds[0]
                 right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(halves[1].split("&") + [shareds[0]]))
             else:
                 #formula is a conditional of only joints
-                # left_formula = halves[0] + "&" + halves[1]
                 left_formula = "&".join(sorted(halves[1].split("&") + halves[0].split("&")))
                 right_formula = halves[1]
 
@@ -254,7 +241,6 @@ class DDIT:
 
         else:
             # formula is only a joint; calculate from data
-            # self.__debug_new_count += 1
             variables = formula.split("&")
             if len(variables) == 1:
                 self.entropies[formula] = self.H(formula)
@@ -281,12 +267,9 @@ class DDIT:
         for i, subset in enumerate(power_set):
             if i > 0:
                 formula = self.__venn_make_formula(subset, column_keys)
-                # if self.verbose: print("{}".format(str(datetime.datetime.now())))
                 self.recursively_solve_formula(formula,save_memory=save_memory)
                 if self.verbose: print("{} {} {} {}".format(str(datetime.datetime.now()),i, formula, self.entropies[formula]))
                 else: print("{} {} {}".format(i, formula, self.entropies[formula]))
-                # print(i, formula, self.entropies[formula])
-                # print("unique formulas calculated: ", self.__debug_new_count)
 
 
 if __name__ == "__main__":
