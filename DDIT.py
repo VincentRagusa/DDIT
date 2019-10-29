@@ -33,20 +33,25 @@ class DDIT:
     def __get_column(self, key):
         return self.__columns[key]
 
+
     # def __set_column(self, key, value):
     #     self.__columns[key] = value
+
 
     def __set_column_list(self, key, value_list):
         self.__columns[key] = value_list
         self.column_keys.add(key)
+
 
     def __remove_column(self,key):
         if self.verbose: print("{} Deleting {} from memory ...".format(str(datetime.datetime.now()),key))
         del self.__columns[key]
         self.column_keys.remove(key)
 
+
     def __columns_contains(self, key):
         return key in self.column_keys
+
 
     def __columns_empty(self):
         return False if self.column_keys else True
@@ -191,6 +196,7 @@ class DDIT:
         i = self.H(col1) + self.H(col2) - self.H(and_key)
         return i
 
+
     def auto_possible_values(self, key):
         if self.verbose: print("{} Calculating max states for {}...".format(str(datetime.datetime.now()), key))
         try:
@@ -214,6 +220,7 @@ class DDIT:
             return self.__venn_gen_power_set(variables[1:],current=current) + self.__venn_gen_power_set(variables[1:], current=current + [variables[0]])
         return [current]
 
+
     def __venn_make_formula(self, subset, column_keys):
         if subset:
             subset.sort()
@@ -225,6 +232,7 @@ class DDIT:
             S += "&".join(remainder)
             return S
         return ""
+
 
     def recursively_solve_formula(self, formula, save_memory=False):
         if "|" in formula:
@@ -275,7 +283,6 @@ class DDIT:
                 if save_memory:
                     self.__remove_column(formula)
         
-
 
     def solve_venn_diagram(self, column_keys=None, save_memory=False):
         if column_keys is None:
