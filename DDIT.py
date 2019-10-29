@@ -10,8 +10,8 @@
 #TODO add a flag to column interface functions to have each entry in the dict a file instead to conserve RAM
 
 
-from numpy import log2, isclose, array, memmap
-from copy import deepcopy	
+from numpy import log2, isclose, array, multiply, dot
+# from copy import deepcopy
 import datetime
 from collections import Counter
 
@@ -158,10 +158,17 @@ class DDIT:
         event_counts = Counter(events_data).items()
         h = 0
         
+        #optimized code (ML only)
+        if self.probability_estimator=="maximum_likelihood":
+            # p = event[1]/ self.events_recorded
+            p_vector = array([event[1]/ self.events_recorded for event in event_counts])
+            neglog2p_vector = multiply(-1.0, log2(p_vector))
+            h = dot(p_vector, neglog2p_vector)
+            return h
+
+        #un-optimized code below
         for event in event_counts:
-            if self.probability_estimator=="maximum_likelihood":
-                p = event[1]/ self.events_recorded
-            elif self.probability_estimator=="james-stein":
+            if self.probability_estimator=="james-stein":
                 if col not in self.max_states:
                     print("ERROR cannot use james-stein probability estimator because \"{}\" does not define maximum states".format(col))
                     return
