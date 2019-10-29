@@ -27,6 +27,7 @@ class DDIT:
         self.probability_estimator = probability_estimator
         # "james-stein"
         self.verbose = verbose
+        self.events_recorded = None
 
 
     def __get_column(self, key):
@@ -75,17 +76,30 @@ class DDIT:
 
     def register_column(self, key, col, max_states=None):
         if self.verbose: print("{} Registering {} as {} ...".format(str(datetime.datetime.now()), col,key))
+
+        new_column = [row[col] for row in self.raw_data]
+
+        len_col = len(new_column)
+        if self.events_recorded is None:
+            self.events_recorded = len_col
+        assert len_col == self.events_recorded # all columns must be the same length (rows)
+
         if max_states is not None:
             self.max_states[key] = max_states
         
         if self.__columns_contains(key):
             print("WARNING: column \"{}\" has already been regestered. Overwriting...".format(key))
 
-        new_column = [row[col] for row in self.raw_data]
         self.__set_column_list(key,new_column)
 
 
     def register_column_list(self, key, col, max_states=None):
+        if self.verbose: print("{} Registering custom column as {} ...".format(str(datetime.datetime.now()),key))
+
+        len_col = len(col)
+        if self.events_recorded is None:
+            self.events_recorded = len_col
+        assert len_col == self.events_recorded # all columns must be the same length (rows)
 
         if max_states is not None:
             self.max_states[key] = max_states
@@ -125,9 +139,9 @@ class DDIT:
 
 
     def __james_stein_lambda(self, n, e_counts, p):
-        states_recorded = len(e_counts.items())
-        top = 1-sum([(event[1]/n)**2 for event in e_counts.items()])
-        bot = (n -1)*(sum([((1/p)-event[1]/n)**2 for event in e_counts.items()]) + (p-states_recorded)*((1/p)**2))
+        states_recorded = len(e_counts)
+        top = 1-sum([(event[1]/n)**2 for event in e_counts])
+        bot = (n -1)*(sum([((1/p)-event[1]/n)**2 for event in e_counts]) + (p-states_recorded)*((1/p)**2))
         if bot == 0.0: #prevents divide by 0. assumes x/0 = inf
             return 1.0 # or return 0.0. In either case p_shrink converges to p_ML
         lambda_star = top/bot
@@ -141,20 +155,19 @@ class DDIT:
             print("ERROR column \"{}\" is not regestered!".format(col))
             return
         events_data = self.__get_column(col)
-        events_recorded = len(events_data)
-        event_counts = Counter(events_data)
+        event_counts = Counter(events_data).items()
         h = 0
         
-        for event in event_counts.items():
+        for event in event_counts:
             if self.probability_estimator=="maximum_likelihood":
-                p = event[1]/ events_recorded
+                p = event[1]/ self.events_recorded
             elif self.probability_estimator=="james-stein":
                 if col not in self.max_states:
                     print("ERROR cannot use james-stein probability estimator because \"{}\" does not define maximum states".format(col))
                     return
-                lambda_star = self.__james_stein_lambda(events_recorded,event_counts,self.max_states[col])
+                lambda_star = self.__james_stein_lambda(self.events_recorded, event_counts, self.max_states[col])
                 t = 1 / self.max_states[col]
-                p_ml = event[1]/ events_recorded
+                p_ml = event[1]/ self.events_recorded
                 p = lambda_star*t + (1-lambda_star)*p_ml
             else:
                 print("ERROR unknown probability estimator \"{}\"".format(self.probability_estimator))
