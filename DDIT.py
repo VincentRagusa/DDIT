@@ -8,26 +8,30 @@
 
 
 #TODO add a flag to column interface functions to have each entry in the dict a file instead to conserve RAM
+#TODO write set functions for probability_estimator and save_memory so users can't set them to invalid options
 
 
 from numpy import log2, isclose, array, multiply, dot
-# from copy import deepcopy
-import datetime
+from datetime import datetime
 from collections import Counter
+import psutil #TODO minimize import size
 
 class DDIT:
 
-    def __init__(self, probability_estimator="maximum_likelihood", verbose=False):
+    def __init__(self, probability_estimator="maximum_likelihood", verbose=False, save_memory="lazy"):
         self.raw_data = None
         self.labels = None
         self.__columns = {}
         self.entropies = {}
         self.column_keys = set()
         self.max_states = {}
+        assert probability_estimator in ["maximum_likelihood", "james-stein"]
         self.probability_estimator = probability_estimator
-        # "james-stein"
         self.verbose = verbose
         self.events_recorded = None
+        assert save_memory in ["off", "on", "lazy"]
+        self.save_memory = save_memory
+        self.__lazy_delete_set = set()
 
 
     def __get_column(self, key):
@@ -44,7 +48,7 @@ class DDIT:
 
 
     def __remove_column(self,key):
-        if self.verbose: print("{} Deleting {} from memory ...".format(str(datetime.datetime.now()),key))
+        if self.verbose: print("{} Deleting {} from memory ...".format(str(datetime.now()),key))
         del self.__columns[key]
         self.column_keys.remove(key)
 
@@ -57,15 +61,15 @@ class DDIT:
         return False if self.column_keys else True
 
 
-    def load_csv(self, file_path, header=False, auto_regester=False, auto_maximum_states=False):
-        if self.verbose: print("{} Loading data from {} ...".format(str(datetime.datetime.now()),file_path))
+    def load_csv(self, file_path, header=False, auto_register=False, auto_maximum_states=False):
+        if self.verbose: print("{} Loading data from {} ...".format(str(datetime.now()),file_path))
         with open(file_path, 'r') as csv_file:
             self.raw_data = []
             if header:
                 self.labels = csv_file.readline().strip().split(',')
                 for line in csv_file:
                     self.raw_data.append(line.strip().split(','))
-                if auto_regester:
+                if auto_register:
                     for col, label in enumerate(self.labels):
                         self.register_column(label,col)
                         if auto_maximum_states:
@@ -73,14 +77,14 @@ class DDIT:
             else:
                 for line in csv_file:
                     self.raw_data.append(line.strip().split(','))
-                if auto_regester:
-                    print("WARNING you must manually regester columns if no header is provided. Skipping auto-regester...")
-            if auto_maximum_states and not auto_regester:
-                print("WARNING you must automatically regester columns to automatically calculate maximum states. Skipping auto-maximum-states...")
+                if auto_register:
+                    print("WARNING you must manually register columns if no header is provided. Skipping auto-register...")
+            if auto_maximum_states and not auto_register:
+                print("WARNING you must automatically register columns to automatically calculate maximum states. Skipping auto-maximum-states...")
 
 
     def register_column(self, key, col, max_states=None):
-        if self.verbose: print("{} Registering {} as {} ...".format(str(datetime.datetime.now()), col,key))
+        if self.verbose: print("{} Registering {} as {} ...".format(str(datetime.now()), col,key))
 
         new_column = [row[col] for row in self.raw_data]
 
@@ -93,13 +97,13 @@ class DDIT:
             self.max_states[key] = max_states
         
         if self.__columns_contains(key):
-            print("WARNING: column \"{}\" has already been regestered. Overwriting...".format(key))
+            print("WARNING: column \"{}\" has already been registered. Overwriting...".format(key))
 
         self.__set_column_list(key,new_column)
 
 
     def register_column_list(self, key, col, max_states=None):
-        if self.verbose: print("{} Registering custom column as {} ...".format(str(datetime.datetime.now()),key))
+        if self.verbose: print("{} Registering custom column as {} ...".format(str(datetime.now()),key))
 
         len_col = len(col)
         if self.events_recorded is None:
@@ -110,14 +114,14 @@ class DDIT:
             self.max_states[key] = max_states
         
         if self.__columns_contains(key):
-            print("WARNING: column \"{}\" has already been regestered. Overwriting...".format(key))
+            print("WARNING: column \"{}\" has already been registered. Overwriting...".format(key))
 
         self.__set_column_list(key,col)
 
     
     def print_columns(self):
         if self.__columns_empty():
-            print("No regestered columns to print.")
+            print("No registered columns to print.")
         else:
             for key in self.column_keys:
                 if key in self.max_states:
@@ -128,12 +132,12 @@ class DDIT:
 
     
     def AND(self, col1, col2):
-        if self.verbose: print("{} Creating joint distribution: {}&{} ...".format(str(datetime.datetime.now()), col1,col2))
+        if self.verbose: print("{} Creating joint distribution: {}&{} ...".format(str(datetime.now()), col1,col2))
         if not self.__columns_contains(col1):
-            print("ERROR column \"{}\" is not regestered!".format(col1))
+            print("ERROR column \"{}\" is not registered!".format(col1))
             return
         if not self.__columns_contains(col2):
-            print("ERROR column \"{}\" is not regestered!".format(col2))
+            print("ERROR column \"{}\" is not registered!".format(col2))
             return
         key = col1 + "&" + col2
         new_col = [pair for pair in zip(self.__get_column(col1),self.__get_column(col2))]
@@ -157,7 +161,7 @@ class DDIT:
 
     def H(self, col):
         if not self.__columns_contains(col):
-            print("ERROR column \"{}\" is not regestered!".format(col))
+            print("ERROR column \"{}\" is not registered!".format(col))
             return
         events_data = self.__get_column(col)
         event_counts = Counter(events_data).items()
@@ -168,7 +172,7 @@ class DDIT:
             # p = event[1]/ self.events_recorded
             p_vector = array([event[1]/ self.events_recorded for event in event_counts])
             neglog2p_vector = multiply(-1.0, log2(p_vector))
-            h = dot(p_vector, neglog2p_vector)
+            h = dot(p_vector, neglog2p_vector) + 0.0
             return h
 
         #un-optimized code below
@@ -191,14 +195,14 @@ class DDIT:
     def I(self, col1, col2):
         and_key = col1 + "&" + col2
         if not self.__columns_contains(and_key):
-            if self.verbose: print("{} Regestering column \"{}\"...".format(str(datetime.datetime.now()), and_key))
+            if self.verbose: print("{} registering column \"{}\"...".format(str(datetime.now()), and_key))
             self.AND(col1,col2)
         i = self.H(col1) + self.H(col2) - self.H(and_key)
         return i
 
 
     def auto_possible_values(self, key):
-        if self.verbose: print("{} Calculating max states for {}...".format(str(datetime.datetime.now()), key))
+        if self.verbose: print("{} Calculating max states for {}...".format(str(datetime.now()), key))
         try:
             top = max([float(i) for i in self.__get_column(key)])
             bot = min([float(i) for i in self.__get_column(key)])
@@ -210,7 +214,7 @@ class DDIT:
             if key in self.max_states:
                 print("WARNING: column \"{}\" has already specified a maximum number of states. Overwriting...".format(key))
             self.max_states[key] = (top-bot+1)/dif
-            if self.verbose: print("{} Max states of {} has been set to {}...".format(str(datetime.datetime.now()), key,self.max_states[key]))
+            if self.verbose: print("{} Max states of {} has been set to {}...".format(str(datetime.now()), key,self.max_states[key]))
         except:
             print("ERROR: column \"{}\" was not able to be processed by auto_possible_values! Check for non-numeric data.".format(key))
 
@@ -234,7 +238,7 @@ class DDIT:
         return ""
 
 
-    def recursively_solve_formula(self, formula, save_memory=False):
+    def recursively_solve_formula(self, formula):
         if "|" in formula:
             # formula is a conditional
             halves = formula.split("|")
@@ -249,9 +253,9 @@ class DDIT:
                 right_formula = halves[1]
 
             if left_formula not in self.entropies:
-                self.recursively_solve_formula(left_formula, save_memory=save_memory)
+                self.recursively_solve_formula(left_formula)
             if right_formula not in self.entropies:
-                self.recursively_solve_formula(right_formula, save_memory=save_memory)
+                self.recursively_solve_formula(right_formula)
             
             self.entropies[formula] =  self.entropies[left_formula] - self.entropies[right_formula]
         elif ":" in formula:
@@ -261,9 +265,9 @@ class DDIT:
             right_formula = ":".join(shareds[1:]) + "|" + shareds[0]
 
             if left_formula not in self.entropies:
-                self.recursively_solve_formula(left_formula, save_memory=save_memory)
+                self.recursively_solve_formula(left_formula)
             if right_formula not in self.entropies:
-                self.recursively_solve_formula(right_formula, save_memory=save_memory)
+                self.recursively_solve_formula(right_formula)
             
             self.entropies[formula] =  self.entropies[left_formula] - self.entropies[right_formula]
 
@@ -280,22 +284,28 @@ class DDIT:
                     # intermediate_max_states *= self.max_states[var]
                 self.register_column_list(formula, intermediate) #,max_states=intermediate_max_states
                 self.entropies[formula] = self.H(formula)
-                if save_memory:
+                if self.save_memory == "on":
                     self.__remove_column(formula)
+                elif self.save_memory == "lazy":
+                    self.__lazy_delete_set.add(formula)
+                    if float(psutil.virtual_memory()._asdict()['percent']) >= 90: #TODO make this 90 a parameter
+                        for f in self.__lazy_delete_set:
+                            self.__remove_column(f)
+                        self.__lazy_delete_set = set()
         
 
-    def solve_venn_diagram(self, column_keys=None, save_memory=False):
+    def solve_venn_diagram(self, column_keys=None):
         if column_keys is None:
             column_keys = list(self.column_keys)
-        if self.verbose: print("{} Generating power set of {}...".format(str(datetime.datetime.now()), column_keys))
+        if self.verbose: print("{} Generating power set of {}...".format(str(datetime.now()), column_keys))
         power_set = self.__venn_gen_power_set(column_keys)
-        if self.verbose: print("{} Generating venn diagram...".format(str(datetime.datetime.now())))
+        if self.verbose: print("{} Generating venn diagram...".format(str(datetime.now())))
         else: print("Generating venn diagram...")
         for i, subset in enumerate(power_set):
             if i > 0:
                 formula = self.__venn_make_formula(subset, column_keys)
-                self.recursively_solve_formula(formula,save_memory=save_memory)
-                if self.verbose: print("{} {} {} {}".format(str(datetime.datetime.now()),i, formula, self.entropies[formula]))
+                self.recursively_solve_formula(formula)
+                if self.verbose: print("{} {} {} {}".format(str(datetime.now()),i, formula, self.entropies[formula]))
                 else: print("{} {} {}".format(i, formula, self.entropies[formula]))
 
 
@@ -305,7 +315,7 @@ if __name__ == "__main__":
     ddit = DDIT(verbose=True)
     
     # auto register columns based on CSV headers 
-    ddit.load_csv("xor_data.csv", header=True, auto_regester=True)
+    ddit.load_csv("xor_data.csv", header=True, auto_register=True)
 
     # calculate an arbitrary entropy given in standard form
     ddit.recursively_solve_formula("X:Y|Z")
