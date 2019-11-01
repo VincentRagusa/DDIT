@@ -110,7 +110,18 @@ ddit.verbose = True
 ```
 
 ### Save Memory mode
-Several functions like DDIT.recursively_solve_formula() and DDIT.solve_venn_diagram() have a parameter called "save_memory" which is set to False by default. DDIT caches intermediate forms of your data to speed up computation, but this is only practical for small problem sizes. To disable this caching (reducing performance, but also reduce memory usage significantly) simply call these functions and pass the save_memory parameter as True instead.
+You can set DDIT to save memory mode when you create the object instance or at any time after to conserve system memory. There are three modes of operation: `"off"`, `"on"`, and `"lazy"` (`"lazy"` is the default mode). If save memory is off, DDIT will memoize its solved subproblems without any regard for system memory consumption (this is not advisable for large problem sizes). If save memory is turned on, memoization is disabled. If save memory is set to lazy mode, DDIT will memoize solved subproblems until system virtual memory usage is at or above 90% and then the memo is reset.
+Usage:
+ ```python
+# setting save memory to "on" (default setting is "lazy")
+ddit = DDIT(save_memory="on")
+```
+or
+ ```python
+# changing save memory after object creation (default setting is "lazy")
+ddit = DDIT()
+ddit.save_memory = "off"
+```
 
 ### Alternate Entropy measures
 By default DDIT calculates all entropies using the maximum-likelihood method, whereby all events' probabilities are estimated by their frequency relative to the total number of observed events. DDIT partially supports the james-stein entropy estimator. It is currently not compatible with DDIT.recursively_solve_formula() and, by extension, also not compatible with DDIT.solve_venn_diagram(). This will be fixed one day.
