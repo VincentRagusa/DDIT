@@ -50,7 +50,11 @@ If your CSV file is organized in such a way that each column *is* a random varia
 # load data and register each column automatically 
 ddit.load_csv("data.csv", header=True, auto_register=True)
 ```
-
+At any time you can un-register a column. This does not remove the data from DDIT.raw_data.
+ ```python
+# remove the column whose name is "Input_5" from the list of registered column names 
+ddit.remove_column("Input_5")
+```
 ### Calculating Entropies, Information, and Joint Variables
 To calculate the entropy of any registered variable:
  ```python
@@ -67,12 +71,21 @@ To register a joint variable:
 # register the joint variable "Input_1&Input_2"
 ddit.AND("Input_1", "Input_2")
 ```
-
+When registering a joint variable, you can optionally specify a name for the new variable with:
+ ```python
+# register the joint variable "Custom_joint"
+ddit.AND("Input_1", "Input_2", new_key="Custom_joint")
+```
 ### Complex Entropy Formulas
 Sometimes the labor required to manually register joint variables and calculate shared entropy etc. can be too much. In this case, a function exists to calculate any arbitrary entropy formula that you can give. The acceptable input format is any formula in "standard form" which is here defined as a formula which is in the form "X:Y|Z". There are several mathematical notes to make here:
 First, "X:Y|Z", "X:Y", "Y|Z", and "Z" are each examples of formulas in standard form. So is "A:B:C:D|EFGH". In general, standard form is when you express your entropy as a shared entropy (of arbitrarily many variables >= 0) conditional on a joint entropy (of arbitrarily many variables >= 0) and no variable appears more than once.
 The formula "" or "|" is undefined (though in a data driven system would always evaluate to 0 anyway if it was).
 To get DDIT to evaluate your entropy formula simply call:
+ ```python
+# calculate and store an entropy given by a formula in standard form
+ent = ddit.solve_and_return("X:Y|Z")
+```
+Alternatively, you can have DDIT solve the formula but not return the result:
  ```python
 # calculate an entropy given by a formula in standard form
 ddit.recursively_solve_formula("X:Y|Z")
