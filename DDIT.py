@@ -47,7 +47,7 @@ class DDIT:
         self.column_keys.add(key)
 
 
-    def __remove_column(self,key):
+    def remove_column(self,key):
         if self.verbose: print("{} Deleting {} from memory ...".format(str(datetime.now()),key))
         del self.__columns[key]
         self.column_keys.remove(key)
@@ -131,7 +131,7 @@ class DDIT:
         print()
 
     
-    def AND(self, col1, col2):
+    def AND(self, col1, col2, new_key=None):
         if self.verbose: print("{} Creating joint distribution: {}&{} ...".format(str(datetime.now()), col1,col2))
         if not self.__columns_contains(col1):
             print("ERROR column \"{}\" is not registered!".format(col1))
@@ -139,7 +139,10 @@ class DDIT:
         if not self.__columns_contains(col2):
             print("ERROR column \"{}\" is not registered!".format(col2))
             return
-        key = col1 + "&" + col2
+        if new_key is not None:
+            key = new_key
+        else:
+            key = col1 + "&" + col2
         new_col = [pair for pair in zip(self.__get_column(col1),self.__get_column(col2))]
         if col1 in self.max_states and col2 in self.max_states:
             self.register_column_list(key,new_col, max_states=self.max_states[col1]*self.max_states[col2])
@@ -285,12 +288,12 @@ class DDIT:
                 self.register_column_list(formula, intermediate) #,max_states=intermediate_max_states
                 self.entropies[formula] = self.H(formula)
                 if self.save_memory == "on":
-                    self.__remove_column(formula)
+                    self.remove_column(formula)
                 elif self.save_memory == "lazy":
                     self.__lazy_delete_set.add(formula)
                     if float(psutil.virtual_memory()._asdict()['percent']) >= 90: #TODO make this 90 a parameter
                         for f in self.__lazy_delete_set:
-                            self.__remove_column(f)
+                            self.remove_column(f)
                         self.__lazy_delete_set = set()
         
 
@@ -308,6 +311,25 @@ class DDIT:
                 if self.verbose: print("{} {} {} {}".format(str(datetime.now()),i, formula, self.entropies[formula]))
                 else: print("{} {} {}".format(i, formula, self.entropies[formula]))
 
+    def solve_and_return(self, formula):
+        self.recursively_solve_formula(formula)
+        return self.entropies[formula]
+
+    def greedy_chain_rule(self, X, B_list, alpha=None):
+        print("Applying Chain Rule to {}...".format("{}:{}".format(X, "&".join(B_list))))
+        chosen = []
+        if alpha is None: alpha = len(B_list)
+        while len(chosen) < alpha:
+            if chosen:
+                max_B = max(B_list, key= lambda B: self.solve_and_return( "{}:{}|{}".format(X, B, "&".join(chosen) )) )
+                f = "{}:{}|{}".format(X, max_B, "&".join(chosen))
+                print(f, self.entropies[f])
+            else:
+                max_B = max(B_list, key= lambda B: self.solve_and_return("{}:{}".format(X,B) ))
+                f = "{}:{}".format(X,max_B)
+                print(f, self.entropies[f])
+            chosen.append(max_B)
+            B_list.remove(max_B)
 
 if __name__ == "__main__":
 
