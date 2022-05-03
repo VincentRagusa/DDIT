@@ -152,8 +152,8 @@ class DDIT:
 
     def __james_stein_lambda(self, n, e_counts, p):
         states_recorded = len(e_counts)
-        top = 1-sum([(event[1]/n)**2 for event in e_counts])
-        bot = (n -1)*(sum([((1/p)-event[1]/n)**2 for event in e_counts]) + (p-states_recorded)*((1/p)**2))
+        top = 1-sum([(event/n)**2 for event in e_counts])
+        bot = (n -1)*(sum([((1/p)-event/n)**2 for event in e_counts]) + (p-states_recorded)*((1/p)**2))
         if bot == 0.0: #prevents divide by 0. assumes x/0 = inf
             return 1.0 # or return 0.0. In either case p_shrink converges to p_ML
         lambda_star = top/bot
@@ -167,16 +167,13 @@ class DDIT:
             print("ERROR column \"{}\" is not registered!".format(col))
             return
         events_data = self.__get_column(col)
-        event_counts = Counter(events_data).items()
+        event_counts = Counter(events_data).values()
         h = 0
         
         #optimized code (ML only)
         if self.probability_estimator=="maximum_likelihood":
-            # p = event[1]/ self.events_recorded
-            p_vector = array([event[1]/ self.events_recorded for event in event_counts])
-            neglog2p_vector = multiply(-1.0, log2(p_vector))
-            h = dot(p_vector, neglog2p_vector) + 0.0
-            return h
+            p_vector = array([count/ self.events_recorded for count in event_counts])
+            return - dot(p_vector, log2(p_vector)) + 0.0
 
         #un-optimized code below
         for event in event_counts:
@@ -186,7 +183,7 @@ class DDIT:
                     return
                 lambda_star = self.__james_stein_lambda(self.events_recorded, event_counts, self.max_states[col])
                 t = 1 / self.max_states[col]
-                p_ml = event[1]/ self.events_recorded
+                p_ml = event/ self.events_recorded
                 p = lambda_star*t + (1-lambda_star)*p_ml
             else:
                 print("ERROR unknown probability estimator \"{}\"".format(self.probability_estimator))
@@ -281,11 +278,11 @@ class DDIT:
                 self.entropies[formula] = self.H(formula)
             else:
                 intermediate = list(zip(self.__get_column(variables[0]), self.__get_column(variables[1])))
-                # intermediate_max_states = self.max_states[variables[0]] * self.max_states[variables[1]]
+                intermediate_max_states = self.max_states[variables[0]] * self.max_states[variables[1]]
                 for var in variables[2:]:
                     intermediate = list(zip(intermediate, self.__get_column(var)))
-                    # intermediate_max_states *= self.max_states[var]
-                self.register_column_list(formula, intermediate) #,max_states=intermediate_max_states
+                    intermediate_max_states *= self.max_states[var]
+                self.register_column_list(formula, intermediate, max_states=intermediate_max_states)
                 self.entropies[formula] = self.H(formula)
                 if self.save_memory == "on":
                     self.remove_column(formula)
@@ -334,10 +331,13 @@ class DDIT:
 if __name__ == "__main__":
 
     # create an instance of the class
-    ddit = DDIT(verbose=True)
+    ddit = DDIT(verbose=True, probability_estimator="maximum_likelihood")
     
     # auto register columns based on CSV headers 
-    ddit.load_csv("xor_data.csv", header=True, auto_register=True)
+    ddit.load_csv("xor_data.csv", header=True, auto_register=True, auto_maximum_states=True)
+
+    # get the venn diagram of the system
+    ddit.solve_venn_diagram(column_keys=["X","Y","Z"])
 
     # calculate an arbitrary entropy given in standard form
     ddit.recursively_solve_formula("X:Y|Z")
@@ -345,5 +345,4 @@ if __name__ == "__main__":
     # the result is automatically stored in DDIT.entropies
     print("The entropy of X:Y|Z is ", ddit.entropies["X:Y|Z"])
 
-    # get the venn diagram of the system
-    ddit.solve_venn_diagram(column_keys=["X","Y","Z"])
+    ddit.print_columns()
