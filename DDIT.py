@@ -15,7 +15,8 @@ from numpy import log2, isclose, array, multiply, dot
 from datetime import datetime
 from collections import Counter
 import psutil #TODO minimize import size
-from random import shuffle
+from random import shuffle, seed
+from math import prod
 
 class DDIT:
 
@@ -170,7 +171,6 @@ class DDIT:
         #optimized code (ML only)
         if self.probability_estimator=="maximum_likelihood":
             p_vector = array([count/ self.events_recorded for count in event_counts])
-            print(p_vector,log2(p_vector),dot(p_vector, log2(p_vector)))
             return - dot(p_vector, log2(p_vector)) + 0.0
 
         #un-optimized code below
@@ -255,11 +255,10 @@ class DDIT:
             if right_formula not in self.entropies:
                 self.recursively_solve_formula(right_formula)
             
-            self.entropies[formula] =  self.entropies[left_formula] - self.entropies[right_formula]
-            if self.entropies[formula] < 0:
-                print(left_formula,self.entropies[left_formula],right_formula,self.entropies[right_formula])
-                for var in left_formula.split("&"):
-                    print(var,self.__columns[var])
+            LmR = self.entropies[left_formula] - self.entropies[right_formula]
+            if isclose(LmR,0): LmR = 0.0
+            self.entropies[formula] = LmR
+
         elif ":" in formula:
             #formula is shared only; treat as special case of above case
             shareds = formula.split(":")
@@ -271,7 +270,9 @@ class DDIT:
             if right_formula not in self.entropies:
                 self.recursively_solve_formula(right_formula)
             
-            self.entropies[formula] =  self.entropies[left_formula] - self.entropies[right_formula]
+            LmR = self.entropies[left_formula] - self.entropies[right_formula]
+            if isclose(LmR,0): LmR = 0.0
+            self.entropies[formula] = LmR
 
         else:
             # formula is only a joint; calculate from data
@@ -279,13 +280,9 @@ class DDIT:
             if len(variables) == 1:
                 self.entropies[formula] = self.H(formula)
             else:
-                intermediate = list(zip(self.__get_column(variables[0]), self.__get_column(variables[1])))
-                intermediate_max_states = self.max_states[variables[0]] * self.max_states[variables[1]]
-                for var in variables[2:]:
-                    intermediate = list(zip(intermediate, self.__get_column(var)))
-                    intermediate_max_states *= self.max_states[var]
+                intermediate = list(zip(*[self.__get_column(var) for var in variables]))
+                intermediate_max_states = prod([self.max_states[var] for var in variables])
                 self.register_column_list(formula, intermediate, max_states=intermediate_max_states)
-                print(formula)
                 self.entropies[formula] = self.H(formula)
                 if self.save_memory == "on":
                     self.remove_column(formula)
@@ -295,7 +292,6 @@ class DDIT:
                         for f in self.__lazy_delete_set:
                             self.remove_column(f)
                         self.__lazy_delete_set = set()
-        if self.entropies[formula] < 0: print(formula)
         
 
     def solve_venn_diagram(self, column_keys=None):
@@ -449,7 +445,8 @@ class DDIT:
             return [formula]
 
 
-    def solve_with_bootstrap_pvalue(self,formula:str,reps=100):
+    def solve_with_bootstrap_pvalue(self,formula:str,reps:int=100,rseed:int=None):
+        if rseed is not None: seed(rseed)
         vars = self.__get_var_list(formula)
         entropy = self.solve_and_return(formula)
         #collect bootstrap distribution
@@ -464,21 +461,14 @@ class DDIT:
                 newFormula = newFormula.replace(var,"BS{}_{}".format(rep,var))
             #get entropy
             distribution.append(self.solve_and_return(newFormula))
-            #DEBUG
-            if distribution[-1] < 0:
-                print(formula, distribution[-1])
-                for var in vars:
-                    print(var, self.__columns["BS{}_{}".format(rep,var)])
-            #DEGUB end
             #remove columns
             for var in vars:
                 self.remove_column("BS{}_{}".format(rep,var))
-        #DEBUG plot distribution and entropy
-        import matplotlib.pyplot as plt
-        plt.hist(distribution)
-        plt.axvline(entropy)
-        plt.show()
-        #DEBUG end
+                for key in list(self.entropies.keys()): #list cast fixes dictionary shrink runtime error
+                    if key.startswith("BS{}_".format(rep)):
+                        del self.entropies[key]
+                        if key in self.max_states:
+                            del self.max_states[key]
         #estimate p-value
         p_left = 0
         p_right = 0
