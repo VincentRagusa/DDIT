@@ -11,10 +11,13 @@
 #TODO write set functions for probability_estimator and save_memory so users can't set them to invalid options
 
 
-from numpy import log2, isclose, array, multiply, dot
-from datetime import datetime
 from collections import Counter
-import psutil #TODO minimize import size
+from datetime import datetime
+from random import seed, shuffle
+
+import psutil  # TODO minimize import size
+from numpy import array, dot, isclose, log2
+
 
 class DDIT:
 
@@ -327,6 +330,159 @@ class DDIT:
                 print(f, self.entropies[f])
             chosen.append(max_B)
             B_list.remove(max_B)
+
+
+    def greedy_condition_adder(self, focalVar, OtherVar_list, numChains=None):
+        #most entropy explainable is given by joint everything
+        print("Finding Minimal explanatory set for {}...".format(focalVar))
+        f = "{}|{}".format(focalVar,"&".join(OtherVar_list))
+        target = self.solve_and_return(f)
+        chosen = []
+        if numChains is None: numChains = len(OtherVar_list)
+        time = 1
+        while len(chosen) < numChains:
+            if chosen:
+                best_other = min(OtherVar_list, key= lambda other: self.solve_and_return( "{}|{}".format(focalVar, "&".join(chosen+[other]) )) )
+                f = "{}|{}".format(focalVar, "&".join(chosen+[best_other]))
+                print("{} |{}".format(time,best_other), self.entropies[f])
+            else:
+                best_other = min(OtherVar_list, key= lambda other: self.solve_and_return("{}|{}".format(focalVar,other) ))
+                f = "{}|{}".format(focalVar,best_other)
+                print("{} |{}".format(time,best_other), self.entropies[f])
+            chosen.append(best_other)
+            OtherVar_list.remove(best_other)
+            time += 1
+            if isclose(self.entropies[f],target):
+                return chosen
+
+
+    def greedy_node_removal(self, focalVar, OtherVar_list, numChains=None):
+        chosen = []
+        N = len(OtherVar_list)-1
+        if numChains is None: numChains = len(OtherVar_list)
+        time = 1
+        while len(chosen) < numChains and len(chosen) < N:
+            best_other = min(OtherVar_list, key= lambda other: self.solve_and_return("{}:{}|{}".format(focalVar,other,"&".join([b for b in OtherVar_list if b != other]))))
+            f = "{}:{}|{}".format(focalVar,best_other,"&".join([b for b in OtherVar_list if b != best_other]))
+            if not isclose(self.entropies[f],0):
+                print(len(OtherVar_list), OtherVar_list)
+                return
+            print("{} ΔI {}".format(time,best_other), self.entropies[f])
+            
+            chosen.append(best_other)
+            OtherVar_list.remove(best_other)
+            time += 1
+        last_other = OtherVar_list[0]
+        f = "{}:{}".format(focalVar,last_other)
+        print("{} ΔI {}".format(time,last_other), self.solve_and_return(f))
+
+
+    def smallest_explanatory_set(self, focalVar:str, OtherVars:list[str], keepVars:list[str]=[], best=None, target=None):
+        #first call init
+        if best is None:
+            #smallest fully explanatory set is everything
+            best = OtherVars
+            #most entropy explainable is given by joint everything
+            f = "{}|{}".format(focalVar,"&".join(OtherVars))
+            target = self.solve_and_return(f)
+            print("TARGET",target)
+
+        #can we do better than the reported best, with the choices available?
+        #if adding another variable would make us the same size as the best, there's no point looking further.
+        if len(keepVars)+1 == len(best):
+            return best
+        
+        #sort overvars to speed up tree search
+        OtherVars.sort(key= lambda other: self.solve_and_return( "{}|{}".format(focalVar, "&".join(keepVars+[other]) )) )
+
+        #if len(otherVars) == 0, skip this loop and return best.
+        for i in range(len(OtherVars)):
+            #each loop evaluates one of the choices. The recursive call below always includes the choice.
+            # thus, we check including and excluding each variable. We also eliminate repeated sets by keeping the choices ordered.
+            # i.e., if X|AB is tested in one branch, X|BA will not be tested in another branch.
+            choices = OtherVars[i:]
+            #we first check if including every available choice is worse than the target.
+            #if including everything is worse, we cannot do better than the reported best.
+            f = "{}|{}".format(focalVar,"&".join(keepVars+choices))
+            boundTest = self.solve_and_return(f)
+            if not isclose(boundTest,target):
+                return best
+            #we now test if including only our first choice reaches the target.
+            f = "{}|{}".format(focalVar,"&".join(keepVars+[choices[0]]))
+            entropy = self.solve_and_return(f)
+            # print(f,entropy) #DEBUG PRINT
+            # if including our choice meets the target, (and we are smaller than the best,) return the new best.
+            # note, including more variables cannot improve things further, and we cannot break ties in a meaningful way.
+            # therefore, making a recursive call is pointless, and considering more iterations of this loop is wasteful.
+            if isclose(entropy,target):# and len(keepVars)+1 < len(best):
+                print("Rejoice, A new best!",keepVars+[choices[0]],"\n")
+                return keepVars+[choices[0]]
+            #if we have not met the target, we must include another variable. Unsure of which to include, we ask SES.
+            # the variable we are considering is added to the keepVars so that SES will consider it as given.
+            #the best set and target are passed to keep SES as up-to-date as possible
+            if len(keepVars) + 2 < len(best):
+                best = self.smallest_explanatory_set(focalVar,choices[1:],keepVars+[choices[0]],best,target)
+            ##
+            # #SES has reported the best possible set with our current variable included.
+            # #if the best set with this var is smaller than the previous best (which may or may not include this var)
+            # #then we update the best. We do not return a new best, however, as excluding the current var may be better.
+            # if len(bestWithKept) < len(best):
+            #     best = bestWithKept
+            #     print("Rejoice, A new best!",best)
+            ##
+        #after evaluating all choices, return the best.
+        return best
+
+
+    def __get_var_list(self,formula:str)->list[str]:
+        if "|" in formula:
+            parts = formula.split("|")
+            return self.__get_var_list(parts[0]) + self.__get_var_list(parts[1])
+        elif ":" in formula:
+            return formula.split(":")
+        elif "&" in formula:
+            return formula.split("&")
+        else:
+            return [formula]
+
+
+    def solve_with_permutation_pvalue(self,formula:str,reps:int=100,rseed:int=None):
+        if rseed is not None: seed(rseed)
+        vars = self.__get_var_list(formula)
+        entropy = self.solve_and_return(formula)
+        #collect bootstrap distribution
+        distribution = []
+        for rep in range(reps):
+            #create clone columns
+            newFormula = formula
+            for var in vars:
+                shuffledValues = list(self.__columns[var])
+                shuffle(shuffledValues)
+                self.register_column_list("BS{}_{}".format(rep,var),shuffledValues,self.max_states[var])
+                newFormula = newFormula.replace(var,"BS{}_{}".format(rep,var))
+            #get entropy
+            distribution.append(self.solve_and_return(newFormula))
+            #remove columns
+            for key in list(self.column_keys):
+                if key.startswith("BS{}_".format(rep)):
+                    if key in self.entropies:
+                        del self.entropies[key]
+                    if key in self.max_states:
+                        del self.max_states[key]
+                    self.remove_column(key)
+        #estimate p-value
+        p_left = 0
+        p_right = 0
+        for value in distribution:
+            if value >= entropy:
+                p_right += 1
+            if value <= entropy:
+                p_left += 1
+        p_left /= reps
+        p_right /= reps
+        return entropy, (p_left,p_right)
+
+
 
 if __name__ == "__main__":
 
