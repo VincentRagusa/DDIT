@@ -81,7 +81,7 @@ ddit.AND("Input_1", "Input_2", new_key="Custom_joint")
 ```
 ### Complex Entropy Formulas
 Sometimes the labor required to manually register joint variables and calculate shared entropy etc. can be too much. In this case, a function exists to calculate any arbitrary entropy formula that you can give. The acceptable input format is any formula in "standard form" which is here defined as a formula which is in the form "X:Y|Z". There are several mathematical notes to make here:
-First, "X:Y|Z", "X:Y", "Y|Z", and "Z" are each examples of formulas in standard form. So is "A:B:C:D|EFGH". In general, standard form is when you express your entropy as a shared entropy (of arbitrarily many variables >= 0) conditional on a joint entropy (of arbitrarily many variables >= 0) and no variable appears more than once.
+First, "X:Y|Z", "X:Y", "Y|Z", "Z", and "X&Y" are each examples of formulas in standard form. So is "A:B:C:D|E&F&G&H". In general, standard form is when you express your entropy as a shared entropy (of arbitrarily many variables >= 0) conditional on a joint entropy (of arbitrarily many variables >= 0) and no variable appears more than once.
 The formula "" or "|" is undefined (though in a data driven system would always evaluate to 0 anyway if it was).
 To get DDIT to evaluate your entropy formula simply call:
  ```python
