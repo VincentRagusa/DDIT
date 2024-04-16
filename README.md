@@ -4,6 +4,9 @@ The Data-Driven Information Theory (DDIT, pronounced "did-it") framework is a se
 ## Requirements
 Right now, the only version of DDIT is a python class. This makes for both ease of use and ease of development. DDIT is developed with python 3.7.3 64-bit and numpy v1.17.2 .
 
+## TODOs
+https://pola.rs/
+
 ## Usage
 The following sections describe how to use DDIT.
 
@@ -107,6 +110,15 @@ To generate the venn diagram for a specific subset of registered columns:
 # get the venn diagram of X, Y and Z only
 ddit.solve_venn_diagram(column_keys=["X","Y","Z"])
 ```
+
+### Statistical significance of Joint/Shared/Conditional Entropy
+With DDIT, you can compute a p-value on any joint, shared, or conditional entropy. These entropies are computed by joining two or more data columns row-wise. For example, the column [0,0,1,1] joined with [0,1,0,1] gives the joint column [(0,0),(0,1),(1,0),(1,1)]. If, for example, we wish to compute the shared entropy between these first two columns, we would find it to be zero. This shared entropy is the result of the particular ordering of the data in these columns. If, instead, the second column was [1,1,0,0] we would have computed the joint column [(0,1),(0,1),(1,0),(1,0)], and the shared entropy would have been 1 bit. Because re-arranging the order of the data can change the entropy computed, it is natural to ask "Is the (joint/shared/conditional) entropy of my data due to a true relationship between the data, or the result of a coincidental ordering of events"? To address this question, and give a quantitative confidence measure of any joint, shared, or conditional entropy, DDIT can compute a permutation p-value.
+
+Usage:
+```python
+h, P = ddit.solve_with_permutation_pvalue("X:Y|Z")
+```
+This has the same behavior as solve_and_return but also computes a permutation p-value. The p-value comes from randomly shuffling the order of the data and re-computing the entropy many times to get a distribution of entropy values the data could produce. The proportion of entropies larger than the real entropy is given as a right p-value, and the proportion of entropies smaller than the real entropy is given as a left p-value. The number of times the entropy is re-computed on shuffled data can be set by the 'reps' parameter. More replicates will give better statistics, and the possibility of smaller p-values. The random shuffling can be reproduced by setting the 'seed' parameter, which seeds the python random number generator before permuting the data. 
 
 ### Verbose mode
 You can set DDIT to verbose mode when you create the object instance or at any time after to get additional printout from many of the DDIT functions. It also enables time stamped messages. This is primarily a debugging tool for developers and end users and does not affect data processing in any way.
