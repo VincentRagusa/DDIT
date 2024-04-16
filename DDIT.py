@@ -445,6 +445,37 @@ class DDIT:
         else:
             return [formula]
 
+    def __tokenize_formula(self,formula:str)->list[str]:
+        if "|" in formula:
+            parts = formula.split("|")
+            return self.__tokenize_formula(parts[0]) + ["|"] + self.__tokenize_formula(parts[1])
+        elif ":" in formula:
+            Vars = formula.split(":")
+            returnList = []
+            for var in Vars:
+                returnList.append(var)
+                returnList.append(":")
+            return returnList[:-1] #remove last :
+        elif "&" in formula:
+            Vars = formula.split("&")
+            returnList = []
+            for var in Vars:
+                returnList.append(var)
+                returnList.append("&")
+            return returnList[:-1] #remove last &
+        else:
+            return [formula]
+        
+
+    def __get_temp_formula(self,formula:str,repNum:int)->str:
+        tokens = self.__tokenize_formula(formula)
+        newFormula = ""
+        for token in tokens:
+            if token not in [":","|","&"]:
+                newFormula += "PR{}_{}".format(repNum,token)
+            else:
+                newFormula += token
+        return newFormula
 
     def solve_with_permutation_pvalue(self,formula:str,reps:int=100,rseed:int=None):
         if rseed is not None: seed(rseed)
@@ -454,17 +485,18 @@ class DDIT:
         distribution = []
         for rep in range(reps):
             #create clone columns
-            newFormula = formula
+            # newFormula = formula
+            newFormula = self.__get_temp_formula(formula,rep)
             for var in vars:
                 shuffledValues = list(self.__columns[var])
                 shuffle(shuffledValues)
-                self.register_column_list("BS{}_{}".format(rep,var),shuffledValues,self.max_states[var])
-                newFormula = newFormula.replace(var,"BS{}_{}".format(rep,var))
+                self.register_column_list("PR{}_{}".format(rep,var),shuffledValues,self.max_states[var])
+                # newFormula = newFormula.replace(var,"BS{}_{}".format(rep,var))
             #get entropy
             distribution.append(self.solve_and_return(newFormula))
             #remove columns
             for key in list(self.column_keys):
-                if key.startswith("BS{}_".format(rep)):
+                if key.startswith("PR{}_".format(rep)):
                     if key in self.entropies:
                         del self.entropies[key]
                     if key in self.max_states:
