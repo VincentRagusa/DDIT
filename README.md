@@ -4,6 +4,9 @@ The Data-Driven Information Theory (DDIT, pronounced "did-it") framework is a se
 ## Requirements
 Right now, the only version of DDIT is a python class. This makes for both ease of use and ease of development. DDIT is developed with python 3.7.3 64-bit and numpy v1.17.2 .
 
+## TODOs
+https://pola.rs/
+
 ## Usage
 The following sections describe how to use DDIT.
 
