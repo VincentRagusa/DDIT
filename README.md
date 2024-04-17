@@ -40,11 +40,11 @@ To manually register a column, you can either call DDIT.register_column(),
 # register column 0 of raw_data as "Input_1"
 ddit.register_column("Input_1", 0)
 ```
- or DDIT.register_column_list().
+ or DDIT.register_column_tuple().
  ```python
 # register column 1 of raw_data as "Input_2" via custom column construction
-custom_column = [row[1] for row in ddit.raw_data]
-ddit.register_column_list("Input_2", custom_column)
+custom_column = tuple([row[1] for row in ddit.raw_data])
+ddit.register_column_tuple("Input_2", custom_column)
 ```
 The first allows you to specify a column index of raw_data to load while the second offers you the ability to filter, concatenate, or otherwise manipulate one or several columns before registering the final result.
 
@@ -64,6 +64,12 @@ To calculate the entropy of any registered variable:
 # Calculate the entropy of "Input_1"
 e1 = ddit.H("Input_1")
 ```
+or pass in a custom data column:
+ ```python
+# Calculate the entropy of "Input_1"
+custom_column = tuple([row[1] for row in ddit.raw_data])
+e1 = ddit.H("Input_1",columnData=custom_column)
+```
 To calculate the shared entropy (Information) between two columns:
  ```python
 # Calculate The information between "Input_1" and "Input_2"
@@ -72,12 +78,12 @@ i12 = ddit.I("Input_1", "Input_2")
 To register a joint variable:
  ```python
 # register the joint variable "Input_1&Input_2"
-ddit.AND("Input_1", "Input_2")
+ddit.join_and_register("Input_1", "Input_2")
 ```
 When registering a joint variable, you can optionally specify a name for the new variable with:
  ```python
 # register the joint variable "Custom_joint"
-ddit.AND("Input_1", "Input_2", new_key="Custom_joint")
+ddit.join_and_register("Input_1", "Input_2", new_key="Custom_joint")
 ```
 ### Complex Entropy Formulas
 Sometimes the labor required to manually register joint variables and calculate shared entropy etc. can be too much. In this case, a function exists to calculate any arbitrary entropy formula that you can give. The acceptable input format is any formula in "standard form" which is here defined as a formula which is in the form "X:Y|Z". There are several mathematical notes to make here:
@@ -86,17 +92,7 @@ The formula "" or "|" is undefined (though in a data driven system would always 
 To get DDIT to evaluate your entropy formula simply call:
  ```python
 # calculate and store an entropy given by a formula in standard form
-ent = ddit.solve_and_return("X:Y|Z")
-```
-Alternatively, you can have DDIT solve the formula but not return the result:
- ```python
-# calculate an entropy given by a formula in standard form
-ddit.recursively_solve_formula("X:Y|Z")
-```
-To access the resulting entropy value simply:
- ```python
-# the result is automatically stored in DDIT.entropies
-ent = ddit.entropies["X:Y|Z"]
+ent = ddit.recursively_solve_formula("X:Y|Z")
 ```
 
 ### Generating a system's Venn diagram
@@ -118,7 +114,7 @@ Usage:
 ```python
 h, P = ddit.solve_with_permutation_pvalue("X:Y|Z")
 ```
-This has the same behavior as solve_and_return but also computes a permutation p-value. The p-value comes from randomly shuffling the order of the data and re-computing the entropy many times to get a distribution of entropy values the data could produce. The proportion of entropies larger than the real entropy is given as a right p-value, and the proportion of entropies smaller than the real entropy is given as a left p-value. The number of times the entropy is re-computed on shuffled data can be set by the 'reps' parameter. More replicates will give better statistics, and the possibility of smaller p-values. The random shuffling can be reproduced by setting the 'seed' parameter, which seeds the python random number generator before permuting the data. 
+This has the same behavior as recursively_solve_formula but also computes a permutation p-value. The p-value comes from randomly shuffling the order of the data and re-computing the entropy many times to get a distribution of entropy values the data could produce. The proportion of entropies larger than the real entropy is given as a right p-value, and the proportion of entropies smaller than the real entropy is given as a left p-value. The number of times the entropy is re-computed on shuffled data can be set by the 'reps' parameter. More replicates will give better statistics, and the possibility of smaller p-values. The random shuffling can be reproduced by setting the 'seed' parameter, which seeds the python random number generator before permuting the data. 
 
 ### Verbose mode
 You can set DDIT to verbose mode when you create the object instance or at any time after to get additional printout from many of the DDIT functions. It also enables time stamped messages. This is primarily a debugging tool for developers and end users and does not affect data processing in any way.
@@ -133,20 +129,3 @@ or
 ddit = DDIT()
 ddit.verbose = True
 ```
-
-### Save Memory mode
-You can set DDIT to save memory mode when you create the object instance or at any time after to conserve system memory. There are three modes of operation: `"off"`, `"on"`, and `"lazy"` (`"lazy"` is the default mode). If save memory is off, DDIT will memoize its solved subproblems without any regard for system memory consumption (this is not advisable for large problem sizes). If save memory is turned on, memoization is disabled. If save memory is set to lazy mode, DDIT will memoize solved subproblems until system virtual memory usage is at or above 90% and then the memo is reset.
-Usage:
- ```python
-# setting save memory to "on" (default setting is "lazy")
-ddit = DDIT(save_memory="on")
-```
-or
- ```python
-# changing save memory after object creation (default setting is "lazy")
-ddit = DDIT()
-ddit.save_memory = "off"
-```
-
-### Alternate Entropy measures
-By default DDIT calculates all entropies using the maximum-likelihood method, whereby all events' probabilities are estimated by their frequency relative to the total number of observed events. DDIT partially supports the james-stein entropy estimator. It is currently not compatible with DDIT.recursively_solve_formula() and, by extension, also not compatible with DDIT.solve_venn_diagram(). This will be fixed one day.
