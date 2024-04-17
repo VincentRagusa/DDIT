@@ -497,11 +497,13 @@ class DDIT:
             #remove columns
             for key in list(self.column_keys):
                 if key.startswith("PR{}_".format(rep)):
-                    if key in self.entropies:
-                        del self.entropies[key]
-                    if key in self.max_states:
-                        del self.max_states[key]
                     self.remove_column(key)
+            for key in list(self.entropies):
+                if key.startswith("PR{}_".format(rep)):
+                    del self.entropies[key]
+            for key in list(self.max_states):
+                if key.startswith("PR{}_".format(rep)):
+                    del self.max_states[key]
         #estimate p-value
         p_left = 0
         p_right = 0
@@ -512,6 +514,12 @@ class DDIT:
                 p_left += 1
         p_left /= reps
         p_right /= reps
+
+        print("DEBUG: {} columns, {} column keys, {} entropies, {} max_states".format(
+            len(self.__columns),
+            len(self.column_keys),
+            len(self.entropies),
+            len(self.max_states)))
         return entropy, (p_left,p_right)
 
 
