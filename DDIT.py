@@ -166,7 +166,7 @@ class DDIT:
             return S
         return ""
 
-
+    # ~O(S) where S is number of shared variables on LHS of |
     def recursively_solve_formula(self, formula:str)->float:
         if "|" in formula:
             # formula is a conditional
@@ -175,17 +175,20 @@ class DDIT:
                 #formula is a conditional with shared entropy on the lhs
                 shareds = halves[0].split(":")
                 left_formula = ":".join(shareds[1:]) + "|" + halves[1]
-                right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(halves[1].split("&") + [shareds[0]]))
+                right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(halves[1].split("&") + [shareds[0]]))#sorted to keep keys unique
+                #A:B|C = B|C - B|AC
             else:
                 #formula is a conditional of only joints
                 left_formula = "&".join(sorted(halves[1].split("&") + halves[0].split("&")))
                 right_formula = halves[1]
+                #A|B = AB-B
             return self.recursively_solve_formula(left_formula) - self.recursively_solve_formula(right_formula)
         elif ":" in formula:
             #formula is shared only; treat as special case of above case
             shareds = formula.split(":")
             left_formula = ":".join(shareds[1:])
             right_formula = ":".join(shareds[1:]) + "|" + shareds[0]
+            #A:B = B - B|A
             return self.recursively_solve_formula(left_formula) - self.recursively_solve_formula(right_formula)
         else:
             # formula is only a joint; calculate from data
@@ -213,66 +216,31 @@ class DDIT:
                 else: print("{} {} {}".format(i, formula, entropy))
 
 
-    def greedy_chain_rule(self, X, B_list, alpha=None):
-        print("Applying Chain Rule to {}...".format("{}:{}".format(X, "&".join(B_list))))
-        chosen = []
-        if alpha is None: alpha = len(B_list)
-        while len(chosen) < alpha:
-            if chosen:
-                max_B = max(B_list, key= lambda B: self.recursively_solve_formula( "{}:{}|{}".format(X, B, "&".join(chosen) )) )
-                f = "{}:{}|{}".format(X, max_B, "&".join(chosen))
-                print(f, self.entropies[f])
-            else:
-                max_B = max(B_list, key= lambda B: self.recursively_solve_formula("{}:{}".format(X,B) ))
-                f = "{}:{}".format(X,max_B)
-                print(f, self.entropies[f])
-            chosen.append(max_B)
-            B_list.remove(max_B)
-
-
-    def greedy_condition_adder(self, focalVar, OtherVar_list, numChains=None):
+    def greedy_condition_adder(self, focalVar:str, OtherVar_list:list[str], maxConditions:int=None):
         #most entropy explainable is given by joint everything
-        print("Finding Minimal explanatory set for {}...".format(focalVar))
+        print("Finding Minimal explanatory set for {} (GCA)...".format(focalVar))
         f = "{}|{}".format(focalVar,"&".join(OtherVar_list))
         target = self.recursively_solve_formula(f)
         chosen = []
-        if numChains is None: numChains = len(OtherVar_list)
+        if maxConditions is None: maxConditions = len(OtherVar_list)
         time = 1
-        while len(chosen) < numChains:
+        while len(chosen) < maxConditions:
             if chosen:
-                best_other = min(OtherVar_list, key= lambda other: self.recursively_solve_formula( "{}|{}".format(focalVar, "&".join(chosen+[other]) )) )
-                f = "{}|{}".format(focalVar, "&".join(chosen+[best_other]))
-                print("{} |{}".format(time,best_other), self.entropies[f])
+                allConditionedEntropies = [self.recursively_solve_formula( "{}|{}".format(focalVar, "&".join(chosen+[other]))) for other in OtherVar_list]
+                best_entropy = min(allConditionedEntropies)
+                best_other = OtherVar_list[allConditionedEntropies.index(best_entropy)]
+                print("{} |{}".format(time,best_other), best_entropy)
             else:
-                best_other = min(OtherVar_list, key= lambda other: self.recursively_solve_formula("{}|{}".format(focalVar,other) ))
-                f = "{}|{}".format(focalVar,best_other)
-                print("{} |{}".format(time,best_other), self.entropies[f])
+                allConditionedEntropies = [self.recursively_solve_formula("{}|{}".format(focalVar,other)) for other in OtherVar_list]
+                best_entropy = min(allConditionedEntropies)
+                best_other = OtherVar_list[allConditionedEntropies.index(best_entropy)]
+                print("{} |{}".format(time,best_other), best_entropy)
             chosen.append(best_other)
             OtherVar_list.remove(best_other)
             time += 1
-            if isclose(self.entropies[f],target):
+            if isclose(best_entropy,target):
                 return chosen
-
-
-    def greedy_node_removal(self, focalVar, OtherVar_list, numChains=None):
-        chosen = []
-        N = len(OtherVar_list)-1
-        if numChains is None: numChains = len(OtherVar_list)
-        time = 1
-        while len(chosen) < numChains and len(chosen) < N:
-            best_other = min(OtherVar_list, key= lambda other: self.recursively_solve_formula("{}:{}|{}".format(focalVar,other,"&".join([b for b in OtherVar_list if b != other]))))
-            f = "{}:{}|{}".format(focalVar,best_other,"&".join([b for b in OtherVar_list if b != best_other]))
-            if not isclose(self.entropies[f],0):
-                print(len(OtherVar_list), OtherVar_list)
-                return
-            print("{} ΔI {}".format(time,best_other), self.entropies[f])
-            
-            chosen.append(best_other)
-            OtherVar_list.remove(best_other)
-            time += 1
-        last_other = OtherVar_list[0]
-        f = "{}:{}".format(focalVar,last_other)
-        print("{} ΔI {}".format(time,last_other), self.recursively_solve_formula(f))
+        print("ERROR: greedy_condition_adder did not meet the target!")
 
 
     def smallest_explanatory_set(self, focalVar:str, OtherVars:list[str], keepVars:list[str]=[], best=None, target=None):
