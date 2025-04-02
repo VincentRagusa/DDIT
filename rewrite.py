@@ -232,17 +232,19 @@ if __name__ == "__main__":
 
     ddit.read_csv("./xor_data.csv")
 
-    my_data = {"A":[0,0,1,1],
-               "B":['a','b','a','b'],
-               "C":["a",0,0,"a"]}
+    my_data = {"A":[0,2,1,1],
+               "B":['a','a','a','b'],
+               "C":["a",0,2,"a"]}
 
     ddit.add_column(my_data)
 
-    ee = ddit.evaluate_expression("X:A:C&B|Y&Z")
+    EXPRESSION = "X:A:Z&B|Y&C"
+
+    ee = ddit.evaluate_expression(EXPRESSION)
     print(ee)
     print(ddit.df)
 
     ddit.verbose = False
 
-    eep = ddit.evaluate_expression_with_p_value("X:A:C&B|Y&Z",num_iterations=200)
+    eep = ddit.evaluate_expression_with_p_value(EXPRESSION, seed=69, num_iterations=420)
     print(eep)
