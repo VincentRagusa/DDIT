@@ -119,18 +119,15 @@ class DDIT:
         shared_parts = sorted(split_conditional[0].split(":"))
         condition = sorted([var for chunk in split_conditional[1:] for var in chunk.split("&")])
 
-        # print("Entered With", make_expression(shared_parts,condition))
 
         if len(shared_parts) > 1:
             #A:B:C|D = A:B|D - A:B|C&D
             #A:B|C = A|C - A|B&C
             shifted_var = shared_parts.pop().split("&")
             lhs = make_expression(shared_parts,condition)
-            # print("LHS", lhs)
             condition.extend(shifted_var)
             condition.sort()
             rhs = make_expression(shared_parts,condition)
-            # print("RHS", rhs)
             joint_df = pl.concat([self.evaluate_expression(lhs), self.evaluate_expression(rhs)],
                                  how="horizontal")
             alias = f"H({entropy_expression})"
@@ -140,8 +137,6 @@ class DDIT:
             #A|B = A&B - B
             lhs = make_expression(["&".join(sorted(condition+shared_parts[0].split("&")))],[])
             rhs = make_expression(["&".join(condition)],[])
-            # print("LHS", lhs)
-            # print("RHS", rhs)
             joint_df = pl.concat([self.evaluate_expression(lhs), self.evaluate_expression(rhs)],
                                  how="horizontal")
             alias = f"H({entropy_expression})"
@@ -150,16 +145,14 @@ class DDIT:
         variables = shared_parts[0].split("&")
 
         if len(variables) > 1:
-            # Evaluate joint random variable
+            # A&B
             sorted_expression = "&".join(sorted(variables))
             if sorted_expression not in self.df:
                 self.join(variables)
             return self.entropy(sorted_expression)
 
+        # A
         return self.entropy(variables[0])
-
-
-
 
 
 if __name__ == "__main__":
