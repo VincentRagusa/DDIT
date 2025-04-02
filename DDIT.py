@@ -3,7 +3,7 @@
 # Data is stored and manipulated as columns/rows of variable states; entropy is calculated from collapsing these tables
 # Alternate probability estimators are supported
 # 
-# Vincent Ragusa 2019-2024
+# Vincent Ragusa 2019-2025
 # 
 
 
