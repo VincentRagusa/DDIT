@@ -27,6 +27,10 @@ class DDIT:
         if self.verbose: print(f"Computing the entropy of {column_name}")
         return self.df.select(pl.col(column_name).unique_counts().entropy(base=2,normalize=True).alias(f"H({column_name})"))
     
+    def join(self,column_name_1, column_name_2):
+        if self.verbose: print(f"Joining columns {column_name_1} and {column_name_2}")
+        return self.df.select(pl.struct(column_name_1,column_name_2).alias(f"{column_name_1}&{column_name_2}"))
+    
     
 if __name__ == "__main__":
     ddit = DDIT(verbose=True)
@@ -36,3 +40,11 @@ if __name__ == "__main__":
     e = ddit.entropy("X")
     
     print(e)
+    
+    j = ddit.join("X","Y")
+    
+    print(j)
+    
+    print(ddit.entropy("X&Y"))
+    
+    isinstance
