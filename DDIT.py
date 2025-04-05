@@ -162,7 +162,17 @@ class DDIT:
         self.register_column_tuple(key,new_col)
 
 
-    def H(self, col_name:str, column_data:list[str] = None)->float:
+    def entropy(self, col_name:str, column_data:list[str] = None)->float:
+        """Computes the Shannon Entropy of the specified data.
+
+        Args:
+            col_name (str): Name of registered column to retreive data from. 
+            column_data (list[str], optional): Data to compute entropy with.
+                Defaults to None.
+
+        Returns:
+            float: The entropy of the given data.
+        """
         if not self._columns_contains(col_name) and column_data is None:
             print(f"ERROR column \"{col_name}\" is not registered!")
             exit(1)
@@ -177,21 +187,29 @@ class DDIT:
         return 0.0 - dot(p_vector, log2(p_vector))
 
 
-    def I(self, col1:str, col2:str)->float:
+    def information(self, col1:str, col2:str)->float:
+        """Computes the information (shared entropy) between two variables.
+
+        Args:
+            col1 (str): Name of first variable.
+            col2 (str): Name of second variable.
+
+        Returns:
+            float: Information (shared entropy) between the two variables.
+        """
         and_key = col1 + "&" + col2
         if not self._columns_contains(and_key):
             if self.verbose:
                 print(f"{str(datetime.now())} registering column \"{and_key}\"...")
             self.join_and_register(col1,col2)
-        i = self.H(col1) + self.H(col2) - self.H(and_key)
-        return i
+        return self.entropy(col1) + self.entropy(col2) - self.entropy(and_key)
 
 
     def _venn_gen_power_set(self, variables, current=None):
         if current is None:
             current = []
         if variables:
-            a = self._venn_gen_power_set(variables[1:],current=current) 
+            a = self._venn_gen_power_set(variables[1:],current=current)
             b = self._venn_gen_power_set(variables[1:], current=current + [variables[0]])
             return a + b
         return [current]
@@ -212,6 +230,25 @@ class DDIT:
 
     # ~O(S) where S is number of shared variables on LHS of |
     def recursively_solve_formula(self, formula:str)->float:
+        """Computes the value of arbitrary entropy expressions in 'normal form'.
+        Expressions are decomposed using the following identities:\n
+        A:B:C|D = A:B|D - A:B|C&D,\n
+        A:B|C = A|C - A|B&C,\n
+        A|B = A&B - B.\n
+        Together, these expressions allow for a recursive decomposition of any
+        formula into the sum of joint entropies.
+
+        Args:
+            formula (str): An entropy expression in normal form.
+                Normal form is 'X: ... :Y|Z', where X, Y, and Z can be single or joint
+                random variables and there can be arbitrarily many 'shared' variables.
+                No single variable can appear more than once. Use joint variable aliases
+                to prevent multiple appearences of a variable if necessary. It is never
+                necessary.
+
+        Returns:
+            float: The entropy of the given expression.
+        """
         if "|" in formula:
             # formula is a conditional
             halves = formula.split("|")
@@ -219,33 +256,45 @@ class DDIT:
                 #formula is a conditional with shared entropy on the lhs
                 shareds = halves[0].split(":")
                 left_formula = ":".join(shareds[1:]) + "|" + halves[1]
-                right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(halves[1].split("&") + [shareds[0]]))#sorted to keep keys unique
+                right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(
+                    halves[1].split("&") + [shareds[0]]))#sorted to keep keys unique
                 #A:B|C = B|C - B|AC
             else:
                 #formula is a conditional of only joints
                 left_formula = "&".join(sorted(halves[1].split("&") + halves[0].split("&")))
                 right_formula = halves[1]
                 #A|B = AB-B
-            return self.recursively_solve_formula(left_formula) - self.recursively_solve_formula(right_formula)
-        elif ":" in formula:
+            return self.recursively_solve_formula(
+                left_formula) - self.recursively_solve_formula(right_formula)
+
+        if ":" in formula:
             #formula is shared only; treat as special case of above case
             shareds = formula.split(":")
             left_formula = ":".join(shareds[1:])
             right_formula = ":".join(shareds[1:]) + "|" + shareds[0]
             #A:B = B - B|A
-            return self.recursively_solve_formula(left_formula) - self.recursively_solve_formula(right_formula)
-        else:
-            # formula is only a joint; calculate from data
-            variables = formula.split("&")
-            if len(variables) == 1:
-                return self.H(formula)
-            else:
-                joint_data = tuple(zip(*[self._get_column(v) for v in variables]))
-                return self.H(formula, column_data=joint_data)
+            return self.recursively_solve_formula(
+                left_formula) - self.recursively_solve_formula(right_formula)
+
+        # formula is only a joint; calculate from data
+        variables = formula.split("&")
+        if len(variables) == 1:
+            return self.entropy(formula)
+
+        joint_data = tuple(zip(*[self._get_column(v) for v in variables]))
+        return self.entropy(formula, column_data=joint_data)
 
 
     #TODO: return values rather than just print
     def solve_venn_diagram(self, column_keys:list[str]=None)->None:
+        """Computes all entropy expressions comprising the entropy Venn diagram
+        of the variables provided.
+
+        Args:
+            column_keys (list[str], optional): List of variable names to include
+                in the Venn diagram. If None is passed, all registered columns
+                are included in the diagram. Defaults to None.
+        """
         if column_keys is None:
             column_keys = list(self.column_keys)
         if self.verbose:
@@ -263,7 +312,22 @@ class DDIT:
                 else: print(f"{i} {formula} {ent}")
 
 
-    def greedy_condition_adder(self, focal_var:str, other_var_list:list[str], max_conditions:int=None):
+    def greedy_condition_adder(self, focal_var:str,
+                               other_var_list:list[str],
+                               max_conditions:int=None) -> list[str]:
+        """A greedy algorithm for feature selection. Iteratively conditions on the variable that 
+        reduces the most entropy in the target variable. This algorithm is NOT guarenteed to
+        find the smallest explanatory set.
+
+        Args:
+            focal_var (str): The variable we wish to fully explain.
+                other_var_list (list[str]): The set of variables used to explain the focal variable.
+                max_conditions (int, optional): A maximum number of conditional variables to return.
+                Defaults to None.
+
+        Returns:
+            list[str]: list of variables identified as explanatory over the focal var.
+        """
         #most entropy explainable is given by joint everything
         print(f"Finding Minimal explanatory set for {focal_var} (GCA)...")
         f = f"{focal_var}|{'&'.join(other_var_list)}"
@@ -290,30 +354,47 @@ class DDIT:
             time += 1
             if isclose(best_entropy,target):
                 return chosen
-        print("ERROR: greedy_condition_adder did not meet the target!")
+        print("WARNING: greedy_condition_adder did not meet the target!")
+        return chosen
 
 
-    def smallest_explanatory_set(self, focal_var:str, other_vars:list[str], keep_vars:list[str]=None, best=None, target=None):
-        if keep_vars is None:
-            keep_vars = []
+    def smallest_explanatory_set(self, focal_var:str, other_vars:list[str],
+                                 _keep_vars:list[str]=None, _best:list[str]=None,
+                                 _target:float=None) -> list[str]:
+        """A branch-and-bound algorithm for finding the smallest set of variables needed to
+        explain the focal variable.
+
+        Args:
+            focal_var (str): Name of the variable to explain.
+            other_vars (list[str]): Names of variables to include as explainers. 
+            _keep_vars (list[str], optional): Variables used in the current hypothesis.
+                Defaults to None.
+            _best (list[str], optional): Best set of explainers so far. Defaults to None.
+            _target (float, optional): target entropy. Defaults to None.
+
+        Returns:
+            list[str]: List of explainer variables.
+        """
+        if _keep_vars is None:
+            _keep_vars = []
         #first call init
-        if best is None:
+        if _best is None:
             #smallest fully explanatory set is everything
-            best = other_vars
+            _best = other_vars
             #most entropy explainable is given by joint everything
             f = f"{focal_var}|{'&'.join(other_vars)}"
-            target = self.recursively_solve_formula(f)
-            print("TARGET",target)
+            _target = self.recursively_solve_formula(f)
+            print("TARGET",_target)
 
         #can we do better than the reported best, with the choices available?
         #if adding another variable would make us the same size as the best,
         #there's no point looking further.
-        if len(keep_vars)+1 == len(best):
-            return best
+        if len(_keep_vars)+1 == len(_best):
+            return _best
 
         #sort overvars to speed up tree search
         other_vars.sort(key= lambda other: self.recursively_solve_formula(
-            f"{focal_var}|{'&'.join(keep_vars+[other])}") )
+            f"{focal_var}|{'&'.join(_keep_vars+[other])}") )
 
         #if len(otherVars) == 0, skip this loop and return best.
         for i in range(len(other_vars)):
@@ -324,30 +405,30 @@ class DDIT:
             choices = other_vars[i:]
             #we first check if including every available choice is worse than the target.
             #if including everything is worse, we cannot do better than the reported best.
-            f = f"{focal_var}|{'&'.join(keep_vars+choices)}"
+            f = f"{focal_var}|{'&'.join(_keep_vars+choices)}"
             bound_test = self.recursively_solve_formula(f)
-            if not isclose(bound_test,target):
-                return best
+            if not isclose(bound_test,_target):
+                return _best
             #we now test if including only our first choice reaches the target.
-            f = f"{focal_var}|{'&'.join(keep_vars+[choices[0]])}"
+            f = f"{focal_var}|{'&'.join(_keep_vars+[choices[0]])}"
             ent = self.recursively_solve_formula(f)
             # print(f,entropy) #DEBUG PRINT
             # if including our choice meets the target, (and we are smaller than the best,)
             # return the new best. note, including more variables cannot improve things further,
             # and we cannot break ties in a meaningful way. therefore, making a recursive call
             # is pointless, and considering more iterations of this loop is wasteful.
-            if isclose(ent,target):# and len(keepVars)+1 < len(best):
-                print("Rejoice, A new best!",keep_vars+[choices[0]],"\n")
-                return keep_vars+[choices[0]]
+            if isclose(ent,_target):# and len(keepVars)+1 < len(best):
+                print("Rejoice, A new best!",_keep_vars+[choices[0]],"\n")
+                return _keep_vars+[choices[0]]
             #if we have not met the target, we must include another variable. Unsure of which
             # to include, we ask SES. the variable we are considering is added to the keepVars
             # so that SES will consider it as given. the best set and target are passed to keep
             # SES as up-to-date as possible
-            if len(keep_vars) + 2 < len(best):
-                best = self.smallest_explanatory_set(
-                    focal_var, choices[1:], keep_vars+[choices[0]], best, target)
+            if len(_keep_vars) + 2 < len(_best):
+                _best = self.smallest_explanatory_set(
+                    focal_var, choices[1:], _keep_vars+[choices[0]], _best, _target)
         #after evaluating all choices, return the best.
-        return best
+        return _best
 
 
     def _get_var_list(self,formula:str)->list[str]:
@@ -382,7 +463,7 @@ class DDIT:
         return [formula]
 
 
-    def __get_temp_formula(self, formula:str, rep_num:int)->str:
+    def _get_temp_formula(self, formula:str, rep_num:int)->str:
         tokens = self._tokenize_formula(formula)
         new_formula = ""
         for token in tokens:
@@ -396,6 +477,19 @@ class DDIT:
                                       formula:str,
                                       reps:int=100,
                                       rseed:int=None) -> tuple[float,tuple[float,float]]:
+        """Evaluates an entropy expression and returns a p-value for the result.
+
+        Args:
+            formula (str): An entropy expression in normal form.
+            reps (int, optional): Number of permutation tests to run. Higher
+                values result in more accurate p-values, but run longer.
+                Defaults to 100.
+            rseed (int, optional): The random seed. Can be set to reproduce results.
+                Defaults to None.
+
+        Returns:
+            tuple[float,tuple[float,float]]: _description_
+        """
         if rseed is not None:
             seed(rseed)
         variables = self._get_var_list(formula)
@@ -405,7 +499,7 @@ class DDIT:
         for rep in range(reps):
             #create clone columns
             # newFormula = formula
-            new_formula = self.__get_temp_formula(formula,rep)
+            new_formula = self._get_temp_formula(formula,rep)
             for var in variables:
                 shuffled_values = list(self._columns[var])
                 shuffle(shuffled_values)
@@ -437,7 +531,7 @@ if __name__ == "__main__":
     # create an instance of the class
     ddit = DDIT(verbose=True)
 
-    # auto register columns based on CSV headers 
+    # auto register columns based on CSV headers
     ddit.load_csv("xor_data.csv", header=True, auto_register=True)
 
     # display registered columns
