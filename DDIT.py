@@ -107,6 +107,12 @@ class DDIT:
 
 
     def register_column_tuple(self, key:str, col:tuple[str])->None:
+        """Registers a column using the provided data.
+
+        Args:
+            key (str): Name of column.
+            col (tuple[str]): Data of column. Must be the same length as existing columns.
+        """
         if self.verbose:
             print(f"{str(datetime.now())} Registering custom column as {key} ...")
 
@@ -122,6 +128,8 @@ class DDIT:
 
 
     def print_columns(self)->None:
+        """Prints the registered columns.
+        """
         if self._columns_empty():
             print("No registered columns to print.")
         else:
@@ -131,6 +139,13 @@ class DDIT:
 
 
     def join_and_register(self, col1:str, col2:str, new_key:str=None)->None:
+        """Joins two columns and adds their joint data to the registered columns.
+
+        Args:
+            col1 (str): name of first column
+            col2 (str): name of second column
+            new_key (str, optional): Name of new column. Defaults to None.
+        """
         if self.verbose:
             print(f"{str(datetime.now())} Creating joint distribution: {col1}&{col2} ...")
         if not self._columns_contains(col1):
