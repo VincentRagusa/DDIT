@@ -375,12 +375,14 @@ class DDIT:
         Returns:
             list[str]: List of explainer variables.
         """
+        #first call init
         if _keep_vars is None:
             _keep_vars = []
-        #first call init
-        if _best is None:
-            #smallest fully explanatory set is everything
-            _best = other_vars
+            # sort other vars by order 1 information, as a heuristic
+            other_vars.sort(key = lambda x: self.recursively_solve_formula(
+                f"{focal_var}:{x}"),reverse=True)
+            #a small fully explanatory set is found by greedy algorithm
+            _best = self.greedy_condition_adder(focal_var,other_vars)
             #most entropy explainable is given by joint everything
             f = f"{focal_var}|{'&'.join(other_vars)}"
             _target = self.recursively_solve_formula(f)
