@@ -65,6 +65,10 @@ class DDIT:
                 print("Extending dataframe.")
                 print(self.df)
 
+    
+    def column_names(self) -> list[str]:
+        return self.df.columns
+
 
     def entropy(self,column_name:str) -> pl.DataFrame:
         """Computes the Shannon entropy of the column specified.

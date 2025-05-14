@@ -166,7 +166,7 @@ class DDIT:
         """Computes the Shannon Entropy of the specified data.
 
         Args:
-            col_name (str): Name of registered column to retreive data from. 
+            col_name (str): Name of registered column to retrieve data from. 
             column_data (list[str], optional): Data to compute entropy with.
                 Defaults to None.
 
@@ -243,7 +243,7 @@ class DDIT:
                 Normal form is 'X: ... :Y|Z', where X, Y, and Z can be single or joint
                 random variables and there can be arbitrarily many 'shared' variables.
                 No single variable can appear more than once. Use joint variable aliases
-                to prevent multiple appearences of a variable if necessary. It is never
+                to prevent multiple appearances of a variable if necessary. It is never
                 necessary.
 
         Returns:
@@ -254,10 +254,10 @@ class DDIT:
             halves = formula.split("|")
             if ":" in halves[0]:
                 #formula is a conditional with shared entropy on the lhs
-                shareds = halves[0].split(":")
-                left_formula = ":".join(shareds[1:]) + "|" + halves[1]
-                right_formula = ":".join(shareds[1:]) + "|" + "&".join(sorted(
-                    halves[1].split("&") + [shareds[0]]))#sorted to keep keys unique
+                shared = halves[0].split(":")
+                left_formula = ":".join(shared[1:]) + "|" + halves[1]
+                right_formula = ":".join(shared[1:]) + "|" + "&".join(sorted(
+                    halves[1].split("&") + [shared[0]]))#sorted to keep keys unique
                 #A:B|C = B|C - B|AC
             else:
                 #formula is a conditional of only joints
@@ -269,9 +269,9 @@ class DDIT:
 
         if ":" in formula:
             #formula is shared only; treat as special case of above case
-            shareds = formula.split(":")
-            left_formula = ":".join(shareds[1:])
-            right_formula = ":".join(shareds[1:]) + "|" + shareds[0]
+            shared = formula.split(":")
+            left_formula = ":".join(shared[1:])
+            right_formula = ":".join(shared[1:]) + "|" + shared[0]
             #A:B = B - B|A
             return self.recursively_solve_formula(
                 left_formula) - self.recursively_solve_formula(right_formula)
@@ -302,21 +302,23 @@ class DDIT:
         power_set = self._venn_gen_power_set(column_keys)
         if self.verbose:
             print(f"{str(datetime.now())} Generating venn diagram...")
-        else: print("Generating venn diagram...")
+        else:
+            print("Generating venn diagram...")
         for i, subset in enumerate(power_set):
             if i > 0:
                 formula = self._venn_make_formula(subset, column_keys)
                 ent = self.recursively_solve_formula(formula)
                 if self.verbose:
                     print(f"{str(datetime.now())} {i} {formula} {ent}")
-                else: print(f"{i} {formula} {ent}")
+                else:
+                    print(f"{i} {formula} {ent}")
 
 
     def greedy_condition_adder(self, focal_var:str,
                                other_var_list:list[str],
                                max_conditions:int=None) -> list[str]:
         """A greedy algorithm for feature selection. Iteratively conditions on the variable that 
-        reduces the most entropy in the target variable. This algorithm is NOT guarenteed to
+        reduces the most entropy in the target variable. This algorithm is NOT guaranteed to
         find the smallest explanatory set.
 
         Args:
@@ -330,8 +332,8 @@ class DDIT:
         """
         #most entropy explainable is given by joint everything
         print(f"Finding Minimal explanatory set for {focal_var} (GCA)...")
-        f = f"{focal_var}|{'&'.join(other_var_list)}"
-        target = self.recursively_solve_formula(f)
+        formula = f"{focal_var}|{'&'.join(other_var_list)}"
+        target = self.recursively_solve_formula(formula)
         chosen = []
         if max_conditions is None:
             max_conditions = len(other_var_list)
@@ -384,8 +386,8 @@ class DDIT:
             #a small fully explanatory set is found by greedy algorithm
             _best = self.greedy_condition_adder(focal_var,other_vars)
             #most entropy explainable is given by joint everything
-            f = f"{focal_var}|{'&'.join(other_vars)}"
-            _target = self.recursively_solve_formula(f)
+            formula = f"{focal_var}|{'&'.join(other_vars)}"
+            _target = self.recursively_solve_formula(formula)
             print("TARGET",_target)
 
         #can we do better than the reported best, with the choices available?
@@ -394,7 +396,7 @@ class DDIT:
         if len(_keep_vars)+1 == len(_best):
             return _best
 
-        #sort overvars to speed up tree search
+        #sort other vars to speed up tree search
         other_vars.sort(key= lambda other: self.recursively_solve_formula(
             f"{focal_var}|{'&'.join(_keep_vars+[other])}") )
 
@@ -407,13 +409,13 @@ class DDIT:
             choices = other_vars[i:]
             #we first check if including every available choice is worse than the target.
             #if including everything is worse, we cannot do better than the reported best.
-            f = f"{focal_var}|{'&'.join(_keep_vars+choices)}"
-            bound_test = self.recursively_solve_formula(f)
+            formula = f"{focal_var}|{'&'.join(_keep_vars+choices)}"
+            bound_test = self.recursively_solve_formula(formula)
             if not isclose(bound_test,_target):
                 return _best
             #we now test if including only our first choice reaches the target.
-            f = f"{focal_var}|{'&'.join(_keep_vars+[choices[0]])}"
-            ent = self.recursively_solve_formula(f)
+            formula = f"{focal_var}|{'&'.join(_keep_vars+[choices[0]])}"
+            ent = self.recursively_solve_formula(formula)
             # print(f,entropy) #DEBUG PRINT
             # if including our choice meets the target, (and we are smaller than the best,)
             # return the new best. note, including more variables cannot improve things further,
