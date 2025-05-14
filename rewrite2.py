@@ -63,7 +63,7 @@ class DDIT():
             r = reader(f)
             if assume_column_headers:
                 header = next(r)
-            data = [row for row in r]
+            data = [row for row in r] #TODO: = list(r)
 
         data_t = transpose(data)
         self.num_events = len(data_t[0])
@@ -102,23 +102,6 @@ class DDIT():
         return 0.0 - dot(event_probabilities, log2(event_probabilities))
 
 
-    # def join(self, variable_names:list[str]) -> None:
-    #     """Joins the named variables into a single joint variable.
-    #     The new variable is added to the data table with a procedurally
-    #     generated name. This new name is intended to prevent duplicates.
-
-    #     Args:
-    #         variable_names (list[str]): List of variables to join.
-    #     """
-    #     sorted_names = sorted(variable_names)
-    #     joint_name = "&".join(sorted_names)
-
-    #     # if joint_name in self.data:
-    #     #     print(f"WARNING: The variables {sorted_names} have already been joined!") #DEBUG testing speed difference
-
-    #     self.data[joint_name] = tuple(zip(*[self.data[name] for name in sorted_names]))
-
-
     def evaluate_expression(self, entropy_expression:str) -> float:
         """Computes the value of arbitrary entropy expressions in 'normal form'.
         Expressions are decomposed using the following identities:\n
@@ -133,7 +116,7 @@ class DDIT():
                 Normal form is 'X: ... :Y|Z', where X, Y, and Z can be single or joint
                 random variables and there can be arbitrarily many 'shared' variables.
                 No single variable can appear more than once. Use joint variable aliases
-                to prevent multiple appearences of a variable if necessary. It is never
+                to prevent multiple appearances of a variable if necessary. It is never
                 necessary.
 
         Returns:
@@ -177,9 +160,5 @@ if __name__ == "__main__":
     ddit.read_csv("./xor_data.csv")
 
     print(ddit.data)
-
-    # ddit.join(["X","Y"])
-
-    # print(ddit.data)
 
     print(ddit.evaluate_expression("X:Y|Z"))
