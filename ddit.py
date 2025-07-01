@@ -121,8 +121,8 @@ class DDIT:
             self.events_recorded = len_col
         assert len_col == self.events_recorded # all columns must be the same length (rows)
 
-        # if self._columns_contains(key):
-        #     print(f"WARNING: column \"{key}\" has already been registered. Overwriting...")
+        if self._columns_contains(key):
+            print(f"WARNING: column \"{key}\" has already been registered. Overwriting...")
 
         self._set_column_tuple(key,col)
 
