@@ -59,18 +59,18 @@ ddit.remove_column("Input_5")
 To calculate the entropy of any registered variable:
  ```python
 # Calculate the entropy of "Input_1"
-e1 = ddit.H("Input_1")
+e1 = ddit.entropy("Input_1")
 ```
 or pass in a custom data column:
  ```python
 # Calculate the entropy of "Input_1"
 custom_column = tuple([row[1] for row in ddit.raw_data])
-e1 = ddit.H("Input_1",columnData=custom_column)
+e1 = ddit.entropy("Input_1",columnData=custom_column)
 ```
 To calculate the shared entropy (Information) between two columns:
  ```python
 # Calculate The information between "Input_1" and "Input_2"
-i12 = ddit.I("Input_1", "Input_2")
+i12 = ddit.information("Input_1", "Input_2")
 ```
 To register a joint variable:
  ```python
