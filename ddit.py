@@ -440,7 +440,10 @@ class DDIT:
             parts = formula.split("|")
             return self._get_var_list(parts[0]) + self._get_var_list(parts[1])
         if ":" in formula:
-            return formula.split(":")
+            return_list = []
+            for part in formula.split(":"):
+                return_list.extend(self._get_var_list(part))
+            return return_list
         if "&" in formula:
             return formula.split("&")
         return [formula]
@@ -454,7 +457,7 @@ class DDIT:
             variables = formula.split(":")
             return_list = []
             for var in variables:
-                return_list.append(var)
+                return_list.extend(self._tokenize_formula(var))
                 return_list.append(":")
             return return_list[:-1] #remove last :
         if "&" in formula:
@@ -545,5 +548,5 @@ if __name__ == "__main__":
     ddit.solve_venn_diagram(column_keys=["X","Y","Z"])
 
     # calculate an arbitrary entropy given in standard form
-    entropy = ddit.recursively_solve_formula("X:Y|Z")
-    print("The entropy of X:Y|Z is ", entropy)
+    entropy, p = ddit.solve_with_permutation_pvalue("X:Y|Z")
+    print("The entropy of X:Y|Z is ", entropy, p)
