@@ -3,7 +3,6 @@ A data-driven information theory framework.
 Allows the computation and composition of shannon entropy and mutual information.
 Data is stored and manipulated as columns/rows of variable states
 entropy is calculated from collapsing these tables
-Alternate probability estimators are supported
 
 Vincent Ragusa 2019-2025
 """
